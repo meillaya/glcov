@@ -83,6 +83,7 @@ stdenv.mkDerivation {
 
   meta = with lib; {
     description = "Line coverage and profiling for Gleam projects on the Erlang target";
+    license = licenses.asl20;
     mainProgram = "glcov";
     platforms = platforms.unix;
   };

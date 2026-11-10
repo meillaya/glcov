@@ -18,7 +18,7 @@ Coverage collection uses Erlang `cover` and `beam_lib`. JavaScript output, Node,
 
 glcov discovers files under `test/`, keeps modules that export an EUnit test function, and runs them with EUnit. When `gleeunit` is present, glcov uses its reporter and options so output matches `gleam test`.
 
-The project's `<app>_test:main/0` function is not called. Projects whose test main only calls `gleeunit.main()` behave the same as `gleam test`. Projects that perform setup in the test main need to move that setup somewhere else or use a custom runner.
+The project's `<app>_test:main/0` function is not called. Projects whose test main only calls `gleeunit.main()` behave the same as `gleam test`. Projects that perform setup in the test main can put that setup in `test/glcov_setup.gleam`; glcov calls its `setup/0` before EUnit. Other custom runner behaviour needs a library hook that does not exist yet.
 
 ## Application start
 

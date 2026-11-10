@@ -44,6 +44,6 @@ nix develop --no-pure-eval --command gleam test
 
 ## Release
 
-Releases are tag driven. The release workflow runs the format check, build, and unit tests, builds `glcov.escript`, writes its checksum, and attaches both files to a GitHub release.
+Releases are tag driven. The release workflow runs the format check, build, and unit tests, builds `glcov.escript`, writes its checksum, publishes the Hex package, and attaches the escript and checksum to a GitHub release.
 
-Hex publishing needs a licence field in `gleam.toml`; it is not enabled. Update `version` in `gleam.toml` and `pub const version` in `src/glcov/cli.gleam` before the tag.
+Set `HEXPM_API_KEY` in the repository secrets before tagging. Update `version` in `gleam.toml` and `pub const version` in `src/glcov/cli.gleam` before the tag.

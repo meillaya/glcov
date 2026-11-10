@@ -1,15 +1,15 @@
 import glcov/coverage.{
-  type FileCoverage, type Report, file_covered_count, line_count,
+  type FileCoverage, type FunctionCoverage, type Report, file_covered_count,
+  line_count,
 }
 import gleam/int
 import gleam/list
 import gleam/string
 
-/// Serialise a coverage report as a line-coverage lcov.info file.
+/// Serialise a coverage report as an lcov.info file.
 ///
-/// Branch and function records are intentionally absent in 0.2.0: Erlang
-/// cover gives line counts only, and inventing branch data would be worse
-/// than omitting it.
+/// Function records are emitted when function data is present. Branch
+/// records are absent because Erlang cover does not provide branch data.
 pub fn render(report: Report) -> String {
   let records =
     report.files
@@ -30,15 +30,61 @@ fn render_file(file: FileCoverage) -> String {
       "DA:" <> int.to_string(line) <> "," <> hit(is_covered) <> "\n"
     })
     |> string.join("")
+  let function_records = render_functions(file)
   "SF:"
   <> source
   <> "\n"
+  <> function_records
   <> line_records
   <> "LF:"
   <> int.to_string(total)
   <> "\nLH:"
   <> int.to_string(covered)
   <> "\nend_of_record\n"
+}
+
+fn render_functions(file: FileCoverage) -> String {
+  case file.functions {
+    [] -> ""
+    functions -> {
+      let definitions =
+        functions
+        |> list.map(fn(function) {
+          "FN:"
+          <> int.to_string(function.line)
+          <> ","
+          <> function_label(function)
+          <> "\n"
+        })
+        |> string.join("")
+      let hits =
+        functions
+        |> list.map(fn(function) {
+          "FNDA:"
+          <> int.to_string(function.calls)
+          <> ","
+          <> function_label(function)
+          <> "\n"
+        })
+        |> string.join("")
+      let found = list.length(functions)
+      let hit_count =
+        functions
+        |> list.filter(fn(function) { function.calls > 0 })
+        |> list.length
+      definitions
+      <> hits
+      <> "FNF:"
+      <> int.to_string(found)
+      <> "\nFNH:"
+      <> int.to_string(hit_count)
+      <> "\n"
+    }
+  }
+}
+
+fn function_label(function: FunctionCoverage) -> String {
+  function.name <> "/" <> int.to_string(function.arity)
 }
 
 fn hit(is_covered: Bool) -> String {

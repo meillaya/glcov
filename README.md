@@ -67,3 +67,7 @@ The `wisp` run checks the older stdlib path. The other runs use their current de
 ## Requirements
 
 Gleam 1.19 or newer, Erlang/OTP 26 or newer, and `gleam_stdlib` 0.70 or newer.
+
+## Licence
+
+Apache-2.0. See [LICENCE](LICENCE).

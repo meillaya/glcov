@@ -47,5 +47,6 @@ export function profile_tests(_root, _color, _mode) { unsupported("profile_tests
 export function cover_start() { unsupported("cover_start"); }
 export function cover_compile(_beam_paths) { unsupported("cover_compile"); }
 export function cover_analyse(_modules) { unsupported("cover_analyse"); }
+export function cover_analyse_functions(_modules) { unsupported("cover_analyse_functions"); }
 export function cover_stop() { unsupported("cover_stop"); }
 export function run_tests(_root, _color) { unsupported("run_tests"); }

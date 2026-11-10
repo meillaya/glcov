@@ -90,6 +90,73 @@ pub fn analyse(
   }
 }
 
+/// Function coverage rows: `{source, name, line, arity, calls}`.
+pub fn analyse_functions(
+  modules: List(SelectedModule),
+) -> Result(List(#(String, String, Int, Int, Int)), String) {
+  let names = list.map(modules, fn(module) { module.module })
+  case ffi.cover_analyse_functions(names) {
+    Error(message) -> Error("Function coverage analysis failed: " <> message)
+    Ok(results) ->
+      Ok(
+        modules
+        |> list.flat_map(fn(module) {
+          let calls = calls_for(results, module.module)
+          ffi.beam_functions(module.beam)
+          |> list.filter_map(fn(definition) {
+            let #(name, arity, line) = definition
+            case is_named_function(name) && line > 0 {
+              False -> Error(Nil)
+              True ->
+                Ok(#(
+                  module.source,
+                  name,
+                  line,
+                  arity,
+                  call_count(calls, name, arity),
+                ))
+            }
+          })
+        }),
+      )
+  }
+}
+
+fn calls_for(
+  results: List(#(String, List(#(String, Int, Int)))),
+  module: String,
+) -> List(#(String, Int, Int)) {
+  case
+    list.find(results, fn(entry) {
+      let #(candidate, _) = entry
+      candidate == module
+    })
+  {
+    Ok(#(_, calls)) -> calls
+    Error(_) -> []
+  }
+}
+
+fn call_count(
+  calls: List(#(String, Int, Int)),
+  name: String,
+  arity: Int,
+) -> Int {
+  case
+    list.find(calls, fn(entry) {
+      let #(candidate_name, candidate_arity, _) = entry
+      candidate_name == name && candidate_arity == arity
+    })
+  {
+    Ok(#(_, _, calls)) -> calls
+    Error(_) -> 0
+  }
+}
+
+fn is_named_function(name: String) -> Bool {
+  !string.starts_with(name, "-") && name != "module_info"
+}
+
 fn source_for(modules: List(SelectedModule), module: String) -> String {
   modules
   |> list.find(fn(candidate) { candidate.module == module })

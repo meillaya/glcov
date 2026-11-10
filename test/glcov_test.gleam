@@ -220,6 +220,36 @@ pub fn lcov_test() {
   )
 }
 
+pub fn function_coverage_test() {
+  let sample =
+    coverage.from_modules_with_functions(
+      [#("a", "src/a.gleam", [#(2, True), #(5, False)])],
+      [
+        #("src/a.gleam", "classify", 1, 1, 2),
+        #("src/a.gleam", "unused", 5, 0, 0),
+      ],
+    )
+
+  coverage.total_functions(sample) |> should.equal(2)
+  coverage.covered_functions(sample) |> should.equal(1)
+  lcov.render(sample)
+  |> should.equal(
+    "TN:\n"
+    <> "SF:src/a.gleam\n"
+    <> "FN:1,classify/1\n"
+    <> "FN:5,unused/0\n"
+    <> "FNDA:2,classify/1\n"
+    <> "FNDA:0,unused/0\n"
+    <> "FNF:2\n"
+    <> "FNH:1\n"
+    <> "DA:2,1\n"
+    <> "DA:5,0\n"
+    <> "LF:2\n"
+    <> "LH:1\n"
+    <> "end_of_record\n",
+  )
+}
+
 pub fn lcov_windows_paths_test() {
   lcov.render(coverage.from_modules([#("a", "src\\a.gleam", [#(1, True)])]))
   |> should.equal("TN:\nSF:src/a.gleam\nDA:1,1\nLF:1\nLH:1\nend_of_record\n")

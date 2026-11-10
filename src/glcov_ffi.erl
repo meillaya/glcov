@@ -25,6 +25,7 @@
     cover_start/0,
     cover_compile/1,
     cover_analyse/1,
+    cover_analyse_functions/1,
     cover_stop/0,
     run_tests/2
 ]).
@@ -225,37 +226,45 @@ profile_tests(Root, Color, ModeBin) ->
                 [] ->
                     {ok, {0, 0, []}};
                 _ ->
-                    try
-                        Options = #{type => Mode, report => return, set_on_spawn => true},
-                        Fun = fun() -> run_eunit(Modules, Color) end,
-                        {TestResult, {Type, Raw}} = tprof:profile(Fun, Options),
-                        #{all := {_Type, Total, Lines}} =
-                            tprof:inspect({Type, Raw}, total, {measurement, descending}),
-                        Rows = [
-                            begin
-                                PercentBp =
-                                    case Total of
-                                        0 -> 0;
-                                        _ -> Measurement * 10000 div Total
-                                    end,
-                                {
-                                    atom_to_binary(Module, utf8),
-                                    atom_to_binary(Function, utf8),
-                                    Arity,
-                                    Calls,
-                                    Measurement,
-                                    PercentBp
-                                }
-                            end
-                         || {Module, {Function, Arity}, Calls, Measurement, _PerCall, _Percent} <-
-                                Lines
-                        ],
-                        {ok, {test_status(TestResult), Total, Rows}}
-                    catch
-                        Class:Reason:Stack ->
-                            {error, fmt({Class, Reason, Stack})}
+                    case run_test_setup() of
+                        error ->
+                            {error, <<"test setup failed">>};
+                        ok ->
+                            profile_modules(Modules, Color, Mode)
                     end
             end
+    end.
+
+profile_modules(Modules, Color, Mode) ->
+    try
+        Options = #{type => Mode, report => return, set_on_spawn => true},
+        Fun = fun() -> run_eunit(Modules, Color) end,
+        {TestResult, {Type, Raw}} = tprof:profile(Fun, Options),
+        #{all := {_Type, Total, Lines}} =
+            tprof:inspect({Type, Raw}, total, {measurement, descending}),
+        Rows = [
+            begin
+                PercentBp =
+                    case Total of
+                        0 -> 0;
+                        _ -> Measurement * 10000 div Total
+                    end,
+                {
+                    atom_to_binary(Module, utf8),
+                    atom_to_binary(Function, utf8),
+                    Arity,
+                    Calls,
+                    Measurement,
+                    PercentBp
+                }
+            end
+         || {Module, {Function, Arity}, Calls, Measurement, _PerCall, _Percent} <-
+                Lines
+        ],
+        {ok, {test_status(TestResult), Total, Rows}}
+    catch
+        Class:Reason:Stack ->
+            {error, fmt({Class, Reason, Stack})}
     end.
 
 test_status({ok, nil}) -> 0;
@@ -335,6 +344,32 @@ analyse_module(ModuleBin) ->
         Class:Reason -> {error, fmt({Class, Reason})}
     end.
 
+%% Returns {ok, [{Module, [{Function, Arity, Calls}]}]} or {error, Message}.
+cover_analyse_functions(Modules) ->
+    Results = [analyse_module_functions(Module) || Module <- Modules],
+    case [Error || {error, Error} <- Results] of
+        [] -> {ok, [Result || {ok, Result} <- Results]};
+        [Error | _] -> {error, Error}
+    end.
+
+analyse_module_functions(ModuleBin) ->
+    Module = binary_to_atom(ModuleBin, utf8),
+    try cover:analyse(Module, calls, function) of
+        {ok, Items} ->
+            Functions = [
+                {atom_to_binary(Function, utf8), Arity, Calls}
+                || {{Mod, Function, Arity}, Calls} <- Items,
+                   Mod =:= Module
+            ],
+            {ok, {ModuleBin, Functions}};
+        {error, {not_cover_compiled, _}} ->
+            {error, <<"module was not cover-compiled: ", ModuleBin/binary>>};
+        Other ->
+            {error, fmt(Other)}
+    catch
+        Class:Reason -> {error, fmt({Class, Reason})}
+    end.
+
 cover_stop() ->
     try cover:stop() of
         _ -> nil
@@ -354,21 +389,52 @@ run_tests(Root, Color) ->
             io:format(standard_error, "glcov: no test modules found under test/~n", []),
             0;
         _ ->
-            try run_eunit(Modules, Color) of
-                {ok, nil} -> 0;
-                ok -> 0;
-                {error, _} -> 1;
-                error -> 1;
-                _ -> 1
-            catch
-                Class:Reason:Stack ->
-                    io:format(
-                        standard_error,
-                        "glcov: test runner failed: ~p:~p~n~p~n",
-                        [Class, Reason, Stack]
-                    ),
-                    2
+            case run_test_setup() of
+                error ->
+                    2;
+                ok ->
+                    try run_eunit(Modules, Color) of
+                        {ok, nil} -> 0;
+                        ok -> 0;
+                        {error, _} -> 1;
+                        error -> 1;
+                        _ -> 1
+                    catch
+                        Class:Reason:Stack ->
+                            io:format(
+                                standard_error,
+                                "glcov: test runner failed: ~p:~p~n~p~n",
+                                [Class, Reason, Stack]
+                            ),
+                            2
+                    end
             end
+    end.
+
+%% Optional project setup, called after the application starts and before
+%% EUnit. A project can add test/glcov_setup.gleam with setup/0 to configure
+%% loggers or other process-wide state that its test main would normally set.
+run_test_setup() ->
+    case code:ensure_loaded(glcov_setup) of
+        {module, glcov_setup} ->
+            case erlang:function_exported(glcov_setup, setup, 0) of
+                false ->
+                    ok;
+                true ->
+                    try glcov_setup:setup() of
+                        _ -> ok
+                    catch
+                        Class:Reason:Stack ->
+                            io:format(
+                                standard_error,
+                                "glcov: test setup failed: ~p:~p~n~p~n",
+                                [Class, Reason, Stack]
+                            ),
+                            error
+                    end
+            end;
+        _ ->
+            ok
     end.
 
 run_eunit(Modules, Color) ->

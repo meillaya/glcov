@@ -12,7 +12,7 @@ import gleam/io
 import gleam/list
 import gleam/option.{None, Some}
 
-pub const version: String = "0.2.0"
+pub const version: String = "0.3.0"
 
 pub fn main(argv: List(String)) -> Nil {
   main_with_mode(argv, False)
@@ -178,12 +178,24 @@ fn run_with_paths(
               }
               let test_status = runner.run(project.root, use_color)
               let analysis = cover.analyse(modules)
+              let function_analysis = cover.analyse_functions(modules)
               cover.stop()
 
               case analysis {
                 Error(message) -> fail(message)
                 Ok(rows) -> {
-                  let coverage_report = coverage.from_modules(rows)
+                  let function_rows = case function_analysis {
+                    Ok(functions) -> functions
+                    Error(message) -> {
+                      let _ =
+                        ffi.eprintln(
+                          "glcov: function coverage unavailable: " <> message,
+                        )
+                      []
+                    }
+                  }
+                  let coverage_report =
+                    coverage.from_modules_with_functions(rows, function_rows)
                   case coverage.total_lines(coverage_report) {
                     0 ->
                       fail(

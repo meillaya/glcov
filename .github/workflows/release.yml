@@ -30,6 +30,11 @@ jobs:
       - name: Checksums
         run: sha256sum glcov.escript > glcov.escript.sha256
 
+      - name: Publish to Hex
+        env:
+          HEXPM_API_KEY: ${{ secrets.HEXPM_API_KEY }}
+        run: gleam publish --yes
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:

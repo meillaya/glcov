@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0
+
+- Added the Apache-2.0 licence and package metadata.
+- Added function coverage records (`FN`, `FNDA`, `FNF`, `FNH`) to lcov output.
+- Added an optional `test/glcov_setup.gleam` `setup/0` hook for custom test
+  setup.
+- Preserved LF line endings on Windows checkouts so native CI can format-check
+  the repository.
+
 ## 0.2.0
 
 - Added the source-mapped profiler: `glcov prof test` (function-level,

@@ -51,22 +51,41 @@ Exit codes:
 ```lcov
 TN:
 SF:src/fixture_basic.gleam
+FN:1,classify/1
+FN:9,untested/0
+FNDA:2,classify/1
+FNDA:0,untested/0
+FNF:2
+FNH:1
 DA:2,1
 DA:3,1
 DA:4,1
 DA:5,0
+DA:10,0
 LF:5
 LH:3
 end_of_record
 ```
 
-`DA` uses `1` for a covered line and `0` for an uncovered line. Erlang cover does not provide branch data, so there are no `BRDA` records in this release.
+`DA` uses `1` for a covered line and `0` for an uncovered line. `FN` and `FNDA` records describe functions, with `FNF` and `FNH` giving the function totals. Erlang cover does not provide branch data, so there are no `BRDA` records.
 
 Generate HTML with lcov's `genhtml`:
 
 ```sh
 genhtml coverage/lcov.info -o coverage/html
 ```
+
+## Test setup
+
+If `test/glcov_setup.gleam` exports `setup/0`, glcov calls it after the application starts and before EUnit. Use it for logger configuration or process-wide state that a custom test main would normally set.
+
+```gleam
+pub fn setup() -> Nil {
+  wisp.configure_logger()
+}
+```
+
+Setup failures stop the run with exit code 2.
 
 ## Escript
 

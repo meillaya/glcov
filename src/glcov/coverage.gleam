@@ -3,8 +3,17 @@ import gleam/int
 import gleam/list
 import gleam/string
 
+pub type FunctionCoverage {
+  FunctionCoverage(name: String, arity: Int, line: Int, calls: Int)
+}
+
 pub type FileCoverage {
-  FileCoverage(module: String, source: String, lines: List(#(Int, Bool)))
+  FileCoverage(
+    module: String,
+    source: String,
+    lines: List(#(Int, Bool)),
+    functions: List(FunctionCoverage),
+  )
 }
 
 pub type Report {
@@ -19,6 +28,16 @@ pub type Report {
 pub fn from_modules(
   modules: List(#(String, String, List(#(Int, Bool)))),
 ) -> Report {
+  from_modules_with_functions(modules, [])
+}
+
+/// Build a report with line and function coverage.
+///
+/// Function rows are `{source, name, line, arity, calls}`.
+pub fn from_modules_with_functions(
+  modules: List(#(String, String, List(#(Int, Bool)))),
+  function_rows: List(#(String, String, Int, Int, Int)),
+) -> Report {
   Report(
     files: modules
     |> list.filter_map(fn(entry) {
@@ -30,11 +49,42 @@ pub fn from_modules(
             module,
             source,
             list.sort(lines, by: fn(a, b) { int.compare(a.0, b.0) }),
+            functions_for_source(function_rows, source),
           ))
       }
     })
     |> list.sort(by: fn(a, b) { string.compare(a.source, b.source) }),
   )
+}
+
+fn functions_for_source(
+  rows: List(#(String, String, Int, Int, Int)),
+  source: String,
+) -> List(FunctionCoverage) {
+  rows
+  |> list.filter_map(fn(entry) {
+    let #(row_source, name, line, arity, calls) = entry
+    case row_source == source {
+      True -> Ok(FunctionCoverage(name, arity, line, calls))
+      False -> Error(Nil)
+    }
+  })
+  |> list.sort(by: fn(a, b) { int.compare(a.line, b.line) })
+}
+
+pub fn total_functions(report: Report) -> Int {
+  report.files
+  |> list.fold(0, fn(total, file) { total + list.length(file.functions) })
+}
+
+pub fn covered_functions(report: Report) -> Int {
+  report.files
+  |> list.fold(0, fn(total, file) {
+    total
+    + list.length(
+      list.filter(file.functions, fn(function) { function.calls > 0 }),
+    )
+  })
 }
 
 pub fn total_lines(report: Report) -> Int {

@@ -109,6 +109,12 @@ pub fn cover_analyse(
   modules: List(String),
 ) -> Result(List(#(String, List(#(Int, Bool)))), String)
 
+@external(erlang, "glcov_ffi", "cover_analyse_functions")
+@external(javascript, "./glcov_ffi.mjs", "cover_analyse_functions")
+pub fn cover_analyse_functions(
+  modules: List(String),
+) -> Result(List(#(String, List(#(String, Int, Int)))), String)
+
 @external(erlang, "glcov_ffi", "cover_stop")
 @external(javascript, "./glcov_ffi.mjs", "cover_stop")
 pub fn cover_stop() -> Nil

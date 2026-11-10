@@ -74,8 +74,12 @@ check_basic() {
   contains "$lcov" "DA:5,0" || fail "basic: expected line 5 uncovered"
   contains "$lcov" "LF:5" || fail "basic: expected LF:5"
   contains "$lcov" "LH:3" || fail "basic: expected LH:3"
+  contains "$lcov" "FN:1,classify/1" || fail "basic: missing function record"
+  contains "$lcov" "FNDA:2,classify/1" || fail "basic: wrong function call count"
+  contains "$lcov" "FNF:2" || fail "basic: expected FNF:2"
+  contains "$lcov" "FNH:1" || fail "basic: expected FNH:1"
   [ -f "$(fixture_dir basic)/coverage/lcov.info" ] || fail "basic: no lcov file"
-  pass "basic coverage"
+  pass "basic coverage and function records"
 }
 
 check_minimum() {
@@ -271,10 +275,12 @@ check_profiler() {
 check_flags() {
   local output status
   set +e
+  local version
+  version="$(sed -n 's/^version = "\(.*\)"$/\1/p' "$ROOT/gleam.toml")"
   output="$(run_cli basic --version 2>&1)"
   status=$?
   set -e
-  [ "$status" -eq 0 ] && contains "$output" "glcov 0.2.0" || fail "version flag"
+  [ "$status" -eq 0 ] && contains "$output" "glcov $version" || fail "version flag"
   set +e
   output="$(run_cli basic --help 2>&1)"
   status=$?
