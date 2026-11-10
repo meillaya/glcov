@@ -1,0 +1,6 @@
+# Pin this input in devenv.lock. Keep the nixpkgs revision in sync with
+# flake.nix (added in M5) so the devenv shell and the flake expose the same
+# Gleam and Erlang versions.
+inputs:
+  nixpkgs:
+    url: github:cachix/devenv-nixpkgs/rolling

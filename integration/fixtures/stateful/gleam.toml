@@ -1,0 +1,13 @@
+name = "fixture_stateful"
+version = "0.1.0"
+target = "erlang"
+
+[erlang]
+application_start_module = "fixture_stateful_app"
+
+[dependencies]
+gleam_stdlib = ">= 1.0.0 and < 2.0.0"
+
+[dev-dependencies]
+gleeunit = ">= 1.11.0 and < 2.0.0"
+glcov = { path = "../../.." }

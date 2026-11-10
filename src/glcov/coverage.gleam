@@ -1,0 +1,104 @@
+import glcov/args
+import gleam/int
+import gleam/list
+import gleam/string
+
+pub type FileCoverage {
+  FileCoverage(module: String, source: String, lines: List(#(Int, Bool)))
+}
+
+pub type Report {
+  Report(files: List(FileCoverage))
+}
+
+/// Build a report from `{module, source, [{line, covered}]}` entries.
+///
+/// Sources are already relative to the project root by the time they reach
+/// this function; empty sources are dropped and all other files are sorted
+/// for deterministic output.
+pub fn from_modules(
+  modules: List(#(String, String, List(#(Int, Bool)))),
+) -> Report {
+  Report(
+    files: modules
+    |> list.filter_map(fn(entry) {
+      let #(module, source, lines) = entry
+      case source {
+        "" -> Error(Nil)
+        _ ->
+          Ok(FileCoverage(
+            module,
+            source,
+            list.sort(lines, by: fn(a, b) { int.compare(a.0, b.0) }),
+          ))
+      }
+    })
+    |> list.sort(by: fn(a, b) { string.compare(a.source, b.source) }),
+  )
+}
+
+pub fn total_lines(report: Report) -> Int {
+  report.files
+  |> list.fold(0, fn(total, file) { total + list.length(file.lines) })
+}
+
+pub fn covered_lines(report: Report) -> Int {
+  report.files
+  |> list.fold(0, fn(total, file) { total + count_covered(file.lines) })
+}
+
+fn count_covered(lines: List(#(Int, Bool))) -> Int {
+  lines
+  |> list.filter(fn(entry) {
+    let #(_, covered) = entry
+    covered
+  })
+  |> list.length
+}
+
+pub fn uncovered_lines(report: Report) -> Int {
+  total_lines(report) - covered_lines(report)
+}
+
+/// Total coverage in basis points, rounded down. 0 when there is no data.
+pub fn percentage_bp(report: Report) -> Int {
+  let total = total_lines(report)
+  case total {
+    0 -> 0
+    _ -> covered_lines(report) * 10_000 / total
+  }
+}
+
+/// Exact comparison, independent of floating point rounding.
+pub fn meets_minimum(report: Report, min_bp: Int) -> Bool {
+  let total = total_lines(report)
+  total > 0 && covered_lines(report) * 10_000 >= min_bp * total
+}
+
+pub fn percentage_string(report: Report) -> String {
+  args.format_percent(percentage_bp(report))
+}
+
+pub fn file_percentage_bp(lines: List(#(Int, Bool))) -> Int {
+  let total = list.length(lines)
+  case total {
+    0 -> 0
+    _ -> count_covered(lines) * 10_000 / total
+  }
+}
+
+pub fn file_percentage_string(lines: List(#(Int, Bool))) -> String {
+  args.format_percent(file_percentage_bp(lines))
+}
+
+pub fn line_count(lines: List(#(Int, Bool))) -> Int {
+  list.length(lines)
+}
+
+pub fn file_covered_count(lines: List(#(Int, Bool))) -> Int {
+  count_covered(lines)
+}
+
+pub fn format_counts(covered: Int, total: Int) -> String {
+  int.to_string(covered) <> "/" <> int.to_string(total)
+}

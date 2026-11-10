@@ -1,0 +1,14 @@
+build/
+coverage/
+/.cache/
+/.devenv/
+/.local/
+/result
+/result-*
+erl_crash.dump
+
+/.run/
+/glcov.escript
+/integration/fixtures/*/manifest.toml
+/.battle/
+/.direnv/
