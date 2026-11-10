@@ -45,6 +45,18 @@ The `gleam` CLI has no plugin system, so `gleam coverage` is not a command. glco
 - Build the flake package with `nix build .#glcov` and run it with `./result/bin/glcov run`.
 - Profile the test suite with `gleam run --target erlang -m glcov -- prof test`.
 
+## Real-project checks
+
+These public projects were run against glcov with their own test suites:
+
+| Project | Tests | Line coverage | Notes |
+| --- | --- | --- | --- |
+| `gleeunit` | 25 passed | 9.43% | Most tests target JavaScript, so the low coverage is expected. |
+| `gleam_stdlib` | 1548 passed | 80.05% | |
+| `wisp` | 164 passed | 86.44% | Fresh build with the escript; uses `gleam_stdlib` 0.70. |
+
+The `wisp` run checks the older stdlib path. The other runs use their current dependencies.
+
 ## Documentation
 
 - [Usage and command reference](docs/usage.md)
