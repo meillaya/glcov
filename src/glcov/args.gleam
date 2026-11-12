@@ -9,11 +9,14 @@ pub type Options {
     lcov: Option(String),
     no_lcov: Bool,
     excludes: List(String),
+    include_deps: List(String),
+    use_path_deps: Bool,
     quiet: Bool,
     no_color: Bool,
     no_build: Bool,
     root: Option(String),
     app: Option(String),
+    target: Target,
     verbose: Bool,
   )
 }
@@ -25,9 +28,15 @@ pub type Command {
   Version
 }
 
+pub type Target {
+  ErlangTarget
+  JavascriptTarget
+}
+
 pub type ProfileMode {
   CallTime
   CallCount
+  SelfTime
 }
 
 pub type ProfOptions {
@@ -60,11 +69,14 @@ pub fn default_options() -> Options {
     lcov: None,
     no_lcov: False,
     excludes: [],
+    include_deps: [],
+    use_path_deps: True,
     quiet: False,
     no_color: False,
     no_build: False,
     root: None,
     app: None,
+    target: ErlangTarget,
     verbose: False,
   )
 }
@@ -121,6 +133,20 @@ fn parse_run(
                   )
                 Error(message) -> Error(message)
               }
+            "--include-dep" ->
+              case value_for(flag, inline_value, rest) {
+                Ok(#(value, rest)) ->
+                  parse_run(
+                    rest,
+                    Options(..options, include_deps: [
+                      value,
+                      ..options.include_deps
+                    ]),
+                  )
+                Error(message) -> Error(message)
+              }
+            "--no-path-deps" ->
+              parse_run(rest, Options(..options, use_path_deps: False))
             "--root" ->
               case value_for(flag, inline_value, rest) {
                 Ok(#(value, rest)) ->
@@ -131,6 +157,16 @@ fn parse_run(
               case value_for(flag, inline_value, rest) {
                 Ok(#(value, rest)) ->
                   parse_run(rest, Options(..options, app: Some(value)))
+                Error(message) -> Error(message)
+              }
+            "--target" ->
+              case value_for(flag, inline_value, rest) {
+                Ok(#(value, rest)) ->
+                  case parse_target(value) {
+                    Ok(target) ->
+                      parse_run(rest, Options(..options, target: target))
+                    Error(message) -> Error(message)
+                  }
                 Error(message) -> Error(message)
               }
             "--no-lcov" -> parse_run(rest, Options(..options, no_lcov: True))
@@ -217,11 +253,20 @@ fn parse_prof_options(
   }
 }
 
+fn parse_target(value: String) -> Result(Target, String) {
+  case value {
+    "erlang" -> Ok(ErlangTarget)
+    "javascript" -> Ok(JavascriptTarget)
+    _ -> Error("--target must be erlang or javascript")
+  }
+}
+
 fn parse_profile_mode(value: String) -> Result(ProfileMode, String) {
   case value {
     "call_time" -> Ok(CallTime)
     "call_count" -> Ok(CallCount)
-    _ -> Error("--mode must be call_time or call_count")
+    "self_time" -> Ok(SelfTime)
+    _ -> Error("--mode must be call_time, call_count, or self_time")
   }
 }
 
@@ -312,5 +357,9 @@ fn format_fraction(fraction: Int) -> String {
 
 /// Sort and deduplicate options for deterministic tests and output.
 pub fn normalise(options: Options) -> Options {
-  Options(..options, excludes: list.unique(options.excludes))
+  Options(
+    ..options,
+    excludes: list.unique(options.excludes),
+    include_deps: list.unique(options.include_deps),
+  )
 }

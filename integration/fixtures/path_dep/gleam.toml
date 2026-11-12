@@ -1,0 +1,11 @@
+name = "fixture_path_dep"
+version = "0.1.0"
+target = "erlang"
+
+[dependencies]
+gleam_stdlib = ">= 1.0.0 and < 2.0.0"
+shared = { path = "../path_dep_shared" }
+
+[dev-dependencies]
+gleeunit = ">= 1.11.0 and < 2.0.0"
+glcov = { path = "../../.." }

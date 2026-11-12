@@ -1,5 +1,5 @@
 name = "glcov"
-version = "0.3.0"
+version = "0.4.0"
 licences = ["Apache-2.0"]
 description = "Line coverage for Gleam projects on the Erlang target, mapped back to .gleam source"
 gleam = ">= 1.19.0"

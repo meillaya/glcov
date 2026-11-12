@@ -39,6 +39,10 @@ pub fn read_file(path: String) -> Result(String, String)
 @external(javascript, "./glcov_ffi.mjs", "file_exists")
 pub fn file_exists(path: String) -> Bool
 
+@external(erlang, "glcov_ffi", "delete_file")
+@external(javascript, "./glcov_ffi.mjs", "delete_file")
+pub fn delete_file(path: String) -> Nil
+
 @external(erlang, "glcov_ffi", "is_dir")
 @external(javascript, "./glcov_ffi.mjs", "is_dir")
 pub fn is_dir(path: String) -> Bool

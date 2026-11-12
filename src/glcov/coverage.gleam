@@ -152,3 +152,27 @@ pub fn file_covered_count(lines: List(#(Int, Bool))) -> Int {
 pub fn format_counts(covered: Int, total: Int) -> String {
   int.to_string(covered) <> "/" <> int.to_string(total)
 }
+
+pub fn from_source_lines(
+  sources: List(#(String, List(#(Int, Bool)))),
+) -> Report {
+  Report(
+    files: sources
+    |> list.filter_map(fn(entry) {
+      let #(source, lines) = entry
+      case source {
+        "" -> Error(Nil)
+        _ ->
+          Ok(
+            FileCoverage(
+              source,
+              source,
+              list.sort(lines, by: fn(a, b) { int.compare(a.0, b.0) }),
+              [],
+            ),
+          )
+      }
+    })
+    |> list.sort(by: fn(a, b) { string.compare(a.source, b.source) }),
+  )
+}

@@ -42,3 +42,25 @@ jobs:
       - name: Integration tests
         shell: bash
         run: bash integration/run.sh
+
+  javascript:
+    name: JavaScript coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "28"
+          gleam-version: "1.19.2"
+
+      - name: Install c8
+        run: npm install --global c8@10.1.3
+
+      - name: Download dependencies
+        working-directory: integration/fixtures/js_target
+        run: gleam deps download
+
+      - name: Run JavaScript coverage
+        working-directory: integration/fixtures/js_target
+        run: gleam run --target erlang -m glcov -- run --target javascript --min 100

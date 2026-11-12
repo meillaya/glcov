@@ -16,19 +16,39 @@ pub fn select_modules(
   ebin: String,
   excludes: List(String),
 ) -> List(SelectedModule) {
+  select_modules_with_prefix(ebin, "", excludes)
+}
+
+/// Select modules and prefix their displayed source paths.
+///
+/// The prefix is used for path dependencies so lcov paths point at the
+/// dependency file rather than a source path that only exists under the
+/// root package.
+pub fn select_modules_with_prefix(
+  ebin: String,
+  source_prefix: String,
+  excludes: List(String),
+) -> List(SelectedModule) {
+  let prefix = normalise_prefix(source_prefix)
   ffi.beam_sources(ebin)
   |> list.filter_map(fn(entry) {
     let #(module, source, beam) = entry
     let normalised = normalise_source(source)
-    case is_ignored(module, normalised, excludes) {
+    let display = display_source(prefix, normalised)
+    case is_ignored(module, normalised, display, excludes) {
       True -> Error(Nil)
-      False -> Ok(SelectedModule(module, normalised, beam))
+      False -> Ok(SelectedModule(module, display, beam))
     }
   })
   |> list.sort(by: fn(a, b) { string.compare(a.source, b.source) })
 }
 
-fn is_ignored(module: String, source: String, excludes: List(String)) -> Bool {
+fn is_ignored(
+  module: String,
+  source: String,
+  display: String,
+  excludes: List(String),
+) -> Bool {
   case source {
     "" -> True
     _ ->
@@ -37,7 +57,22 @@ fn is_ignored(module: String, source: String, excludes: List(String)) -> Bool {
       || string.ends_with(module, "@@main")
       || string.starts_with(source, "test/")
       || string.starts_with(source, "dev/")
-      || glob.matches_any(excludes, source)
+      || glob.matches_any(excludes, display)
+  }
+}
+
+fn normalise_prefix(prefix: String) -> String {
+  let normalised = normalise_source(prefix)
+  case string.ends_with(normalised, "/") {
+    True -> string.slice(normalised, 0, string.length(normalised) - 1)
+    False -> normalised
+  }
+}
+
+fn display_source(prefix: String, source: String) -> String {
+  case prefix {
+    "" -> source
+    _ -> prefix <> "/" <> source
   }
 }
 

@@ -272,6 +272,52 @@ check_profiler() {
   pass "profiler (gleam run and escript)"
 }
 
+check_self_time() {
+  local output status
+  set +e
+  output="$(cd "$(fixture_dir basic)" && "$GLEAM" run --target erlang -m glcov -- prof test --mode self_time --top 5 2>&1)"
+  status=$?
+  set -e
+  [ "$status" -eq 0 ] || { fail "self-time: expected exit 0, got $status"; printf '%s\n' "$output"; return; }
+  contains "$output" "self_time (own time, us)" || fail "self-time: missing mode summary"
+  contains "$output" "src/fixture_basic.gleam:1" || fail "self-time: missing source mapping"
+  contains "$output" "classify/1" || fail "self-time: missing function row"
+
+  set +e
+  output="$(cd "$(fixture_dir failing)" && "$GLEAM" run --target erlang -m glcov -- prof test --mode self_time 2>&1)"
+  status=$?
+  set -e
+  [ "$status" -eq 1 ] || fail "self-time: failing suite expected exit 1, got $status"
+  pass "self-time profiler"
+}
+
+check_js_coverage() {
+  local output status
+  set +e
+  output="$(run_cli js_no_maps --target javascript 2>&1)"
+  status=$?
+  set -e
+  [ "$status" -eq 2 ] || fail "js source maps: expected exit 2, got $status"
+  contains "$output" "source_maps = true" || fail "js source maps: missing hint"
+
+  if ! command -v c8 >/dev/null 2>&1; then
+    pass "JavaScript coverage (skipped: c8 not installed)"
+    return
+  fi
+
+  clean_coverage js_target
+  set +e
+  output="$(run_cli js_target --target javascript --quiet 2>&1)"
+  status=$?
+  set -e
+  [ "$status" -eq 0 ] || { fail "js coverage: expected exit 0, got $status"; printf '%s\n' "$output"; return; }
+  local lcov
+  lcov="$(cat "$(fixture_dir js_target)/coverage/lcov.info")"
+  contains "$lcov" "SF:src/fixture_js_target.gleam" || fail "js coverage: missing source record"
+  contains "$lcov" "DA:1,1" || fail "js coverage: missing line record"
+  pass "JavaScript coverage"
+}
+
 check_flags() {
   local output status
   set +e
@@ -307,6 +353,43 @@ check_flags() {
   pass "flags"
 }
 
+check_path_deps() {
+  clean_coverage path_dep
+  local output status
+  set +e
+  output="$(run_cli path_dep 2>&1)"
+  status=$?
+  set -e
+  [ "$status" -eq 0 ] || { fail "path deps: expected exit 0, got $status"; printf '%s\n' "$output"; return; }
+  local lcov
+  lcov="$(cat "$(fixture_dir path_dep)/coverage/lcov.info")"
+  contains "$lcov" "SF:../path_dep_shared/src/shared.gleam" \
+    || { fail "path deps: dependency source missing"; printf '%s\n' "$lcov"; return; }
+  contains "$lcov" "FN:1,increment/1" || fail "path deps: dependency function missing"
+  contains "$lcov" "FNDA:1,increment/1" || fail "path deps: dependency call count"
+  contains "$lcov" "DA:2,1" || fail "path deps: dependency line missing"
+
+  clean_coverage path_dep
+  output="$(run_cli path_dep --no-path-deps 2>&1)"
+  lcov="$(cat "$(fixture_dir path_dep)/coverage/lcov.info")"
+  case "$lcov" in
+    *"path_dep_shared"*) fail "path deps: --no-path-deps still included dependency" ;;
+  esac
+
+  clean_coverage path_dep
+  output="$(run_cli path_dep --no-path-deps --include-dep ../path_dep_shared 2>&1)"
+  lcov="$(cat "$(fixture_dir path_dep)/coverage/lcov.info")"
+  contains "$lcov" "SF:../path_dep_shared/src/shared.gleam" \
+    || fail "path deps: explicit include missing"
+
+  set +e
+  output="$(run_cli path_dep --include-dep missing 2>&1)"
+  status=$?
+  set -e
+  [ "$status" -eq 2 ] || fail "path deps: missing include expected exit 2, got $status"
+  pass "path dependency coverage"
+}
+
 check_no_build() {
   clean_coverage basic
   set +e
@@ -327,7 +410,10 @@ check_eunit_fallback
 check_stateful_escript
 check_stateful_gleam_run
 check_profiler
+check_self_time
+check_js_coverage
 check_flags
+check_path_deps
 check_no_build
 
 if [ "$failed" -ne 0 ]; then

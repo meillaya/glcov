@@ -32,6 +32,7 @@ export function set_cwd(_path) { unsupported("set_cwd"); }
 export function find_project_root() { unsupported("find_project_root"); }
 export function read_file(_path) { unsupported("read_file"); }
 export function file_exists(_path) { unsupported("file_exists"); }
+export function delete_file(_path) { unsupported("delete_file"); }
 export function is_dir(_path) { unsupported("is_dir"); }
 export function write_file(_path, _contents) { unsupported("write_file"); }
 export function which(_program) { unsupported("which"); }

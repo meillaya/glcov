@@ -58,11 +58,14 @@ pub fn parse_run_options_test() {
         lcov: Some("coverage/out.info"),
         no_lcov: False,
         excludes: ["src/skip.gleam", "src/gen/*"],
+        include_deps: [],
+        use_path_deps: True,
         quiet: True,
         no_color: False,
         no_build: True,
         root: None,
         app: None,
+        target: args.ErlangTarget,
         verbose: False,
       )),
     ),
@@ -93,6 +96,21 @@ pub fn parse_profiler_test() {
         no_build: True,
         no_color: False,
         quiet: True,
+      )),
+    ),
+  )
+
+  args.parse(["prof", "test", "--mode", "self_time"])
+  |> should.equal(
+    Ok(
+      args.Prof(args.ProfOptions(
+        mode: args.SelfTime,
+        top: 20,
+        root: None,
+        app: None,
+        no_build: False,
+        no_color: False,
+        quiet: False,
       )),
     ),
   )
@@ -166,6 +184,64 @@ pub fn toml_top_level_test() {
 
   toml.target("name = \"my_app\"\ntarget = 'javascript'\n")
   |> should.equal(Some("javascript"))
+}
+
+pub fn toml_path_dependencies_test() {
+  let contents =
+    "name = \"app\"\n"
+    <> "[dependencies]\n"
+    <> "gleam_stdlib = \">= 1.0.0\"\n"
+    <> "shared = { path = \"../shared\" }\n"
+    <> "\n"
+    <> "[dependencies.other]\n"
+    <> "path = '../other'\n"
+    <> "\n"
+    <> "[dev-dependencies]\n"
+    <> "tool = { path = \"../tool\" }\n"
+
+  toml.path_dependencies(contents)
+  |> should.equal([
+    toml.PathDependency("shared", "../shared"),
+    toml.PathDependency("other", "../other"),
+  ])
+
+  toml.path_dependencies("name = \"app\"\n") |> should.equal([])
+}
+
+pub fn parse_target_test() {
+  args.parse(["run", "--target", "javascript"])
+  |> should.equal(
+    Ok(args.Run(
+      args.Options(..args.default_options(), target: args.JavascriptTarget),
+    )),
+  )
+
+  args.parse(["run", "--target", "nope"]) |> should.be_error
+}
+
+pub fn javascript_source_maps_test() {
+  toml.javascript_source_maps(
+    "name = \"app\"\n[javascript]\nsource_maps = true\n",
+  )
+  |> should.be_true
+  toml.javascript_source_maps(
+    "name = \"app\"\n[javascript]\nsource_maps = false\n",
+  )
+  |> should.be_false
+  toml.javascript_source_maps("name = \"app\"\n") |> should.be_false
+}
+
+pub fn lcov_parse_test() {
+  lcov.parse(
+    "TN:\n"
+    <> "SF:src/a.gleam\n"
+    <> "DA:2,1\n"
+    <> "DA:3,0\n"
+    <> "end_of_record\n",
+  )
+  |> should.equal(Ok([#("src/a.gleam", [#(2, True), #(3, False)])]))
+
+  lcov.parse("TN:\n") |> should.be_error
 }
 
 pub fn glob_test() {

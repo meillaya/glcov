@@ -1,4 +1,6 @@
-import glcov/args.{type ProfileMode, CallCount, CallTime, format_percent}
+import glcov/args.{
+  type ProfileMode, CallCount, CallTime, SelfTime, format_percent,
+}
 import glcov/cover.{type SelectedModule}
 import glcov/ffi
 import gleam/int
@@ -31,6 +33,7 @@ pub fn run(
   let mode_string = case mode {
     CallTime -> "call_time"
     CallCount -> "call_count"
+    SelfTime -> "self_time"
   }
 
   case ffi.profile_tests(root, color, mode_string) {
@@ -147,6 +150,7 @@ pub fn render_summary(report: Report, top: Int) -> String {
       let mode = case report.mode {
         CallTime -> "call_time (inclusive time, us)"
         CallCount -> "call_count"
+        SelfTime -> "self_time (own time, us)"
       }
       "Profile: "
       <> mode
@@ -171,6 +175,7 @@ fn measurement_header(mode: ProfileMode) -> String {
   case mode {
     CallTime -> "  " <> pad_left("Time (us)", 13)
     CallCount -> ""
+    SelfTime -> "  " <> pad_left("Own (us)", 13)
   }
 }
 
@@ -178,6 +183,7 @@ fn measurement_column(mode: ProfileMode, row: Row) -> String {
   case mode {
     CallTime -> "  " <> pad_left(int.to_string(row.measurement), 13)
     CallCount -> ""
+    SelfTime -> "  " <> pad_left(int.to_string(row.measurement), 13)
   }
 }
 

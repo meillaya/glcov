@@ -14,7 +14,7 @@ Run it from the project root:
 gleam run --target erlang -m glcov -- run
 ```
 
-Use `--target erlang` when `gleam.toml` defaults to JavaScript. glcov builds the project with `gleam build --target erlang`, so test code and dev dependencies are compiled.
+Use `--target erlang` when `gleam.toml` defaults to JavaScript but the CLI runs on Erlang. The command builds the selected backend, runs the tests, and writes coverage.
 
 ## Command reference
 
@@ -24,10 +24,13 @@ gleam run --target erlang -m glcov -- run [OPTIONS]
 
 | Option | Default | Meaning |
 | --- | --- | --- |
+| `--target <TARGET>` | `erlang` | `erlang` or `javascript`. |
 | `--min <PCT>` | none | Fail when total line coverage is below PCT. Accepts 0 to 100 with up to two decimals. |
 | `--lcov <PATH>` | `coverage/lcov.info` | Write lcov to PATH. |
 | `--no-lcov` | off | Skip the lcov file. |
-| `--exclude <GLOB>` | none | Skip source paths matching GLOB. Repeatable. `test/**` and `dev/**` are always skipped. |
+| `--exclude <GLOB>` | none | Skip source paths matching GLOB. Repeatable. |
+| `--include-dep <PATH>` | none | Include a local path dependency. Repeatable. |
+| `--no-path-deps` | off | Do not include path dependencies from `gleam.toml`. |
 | `--quiet` | off | Print the summary only. |
 | `--no-color` | off | Disable coloured test output. |
 | `--no-build` | off | Reuse existing build artefacts. |
@@ -44,9 +47,37 @@ Exit codes:
 | 1 | Tests failed or coverage was below `--min`. Coverage is still written when the test process can finish. |
 | 2 | Usage, configuration, build, or tool error. |
 
+## Path dependencies
+
+Direct path dependencies under `[dependencies]` are included in coverage automatically. Their files appear in the table and lcov with paths relative to the project root. They count toward `--min`.
+
+Development dependencies are skipped because tools such as glcov are often declared there as path dependencies. Use `--include-dep` to add one explicitly:
+
+```sh
+gleam run --target erlang -m glcov -- run --include-dep ../shared
+```
+
+`--no-path-deps` keeps the root package only. A missing path, missing build output, or duplicate module name stops the run with exit code 2.
+
+## JavaScript
+
+The JavaScript backend runs `gleam test --target javascript` under c8:
+
+```sh
+gleam run --target erlang -m glcov -- run --target javascript
+```
+
+Prerequisites:
+
+- `c8` on `PATH` (the CI job pins 10.1.3).
+- `[javascript] source_maps = true` in `gleam.toml`.
+- Node available to c8.
+
+glcov maps c8 paths under `build/dev/javascript/<app>/` back to `src/` and keeps only files that exist there. Test modules, dependencies, and generated files are skipped. JavaScript coverage is line-only in this release.
+
 ## lcov output
 
-`coverage/lcov.info` contains line records only:
+Erlang coverage writes line and function records:
 
 ```lcov
 TN:
@@ -67,9 +98,9 @@ LH:3
 end_of_record
 ```
 
-`DA` uses `1` for a covered line and `0` for an uncovered line. `FN` and `FNDA` records describe functions, with `FNF` and `FNH` giving the function totals. Erlang cover does not provide branch data, so there are no `BRDA` records.
+`DA` uses `1` for a covered line and `0` for an uncovered line. `FN` and `FNDA` describe functions, and `FNF` and `FNH` give function totals. Erlang cover does not provide branch data, so there are no `BRDA` records.
 
-Generate HTML with lcov's `genhtml`:
+JavaScript output is line-only. Generate HTML with lcov's `genhtml`:
 
 ```sh
 genhtml coverage/lcov.info -o coverage/html
@@ -100,6 +131,8 @@ The escript builds the project, starts it after cover instrumentation, and then 
 
 The escript adds the project's build paths before loading its own CLI code. The project's `gleam_stdlib` version is therefore used for tests even when it differs from the copy bundled in the escript.
 
+The escript supports the Erlang backend only. For JavaScript coverage, run the CLI from a checkout with c8 installed.
+
 ## Nix
 
 The flake exposes a development shell and a packaged CLI:
@@ -113,7 +146,7 @@ nix run .# -- run --min 85
 
 Use `--no-pure-eval` for the development shell. Devenv needs the working directory, and pure flake evaluation hides it.
 
-The Nix package pins Gleam 1.19.2 and Erlang/OTP 28. Its wrapper puts the pinned `gleam`, `erlang`, and `git` on `PATH`. For projects that use a different toolchain, use the Hex package or the escript built from your own checkout.
+The Nix package pins Gleam 1.19.2 and Erlang/OTP 28. Its wrapper puts the pinned `gleam`, `erlang`, and `git` on `PATH`. c8 is not packaged; JavaScript coverage needs it on `PATH`.
 
 ## CI
 
@@ -129,7 +162,7 @@ The Nix package pins Gleam 1.19.2 and Erlang/OTP 28. Its wrapper puts the pinned
     files: coverage/lcov.info
 ```
 
-For projects with `[erlang] application_start_module`, run `gleam build` first and pass `--no-build`:
+For a JavaScript job, install c8 and enable source maps. For projects with `[erlang] application_start_module`, run `gleam build` first and pass `--no-build`:
 
 ```sh
 gleam build

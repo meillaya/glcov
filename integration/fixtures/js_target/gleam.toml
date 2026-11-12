@@ -1,0 +1,13 @@
+name = "fixture_js_target"
+version = "0.1.0"
+target = "javascript"
+
+[javascript]
+source_maps = true
+
+[dependencies]
+gleam_stdlib = ">= 1.0.0 and < 2.0.0"
+
+[dev-dependencies]
+gleeunit = ">= 1.11.0 and < 2.0.0"
+glcov = { path = "../../.." }

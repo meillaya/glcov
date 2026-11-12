@@ -1,8 +1,8 @@
 # glcov
 
-Line coverage and a function-level profiler for Gleam projects on the Erlang target.
+Line coverage and a profiler for Gleam projects, with Erlang and JavaScript backends.
 
-glcov is for Gleam teams whose tests run on Erlang and who want a coverage table, `coverage/lcov.info`, and a CI gate without editing test files.
+glcov is for Gleam teams that want a coverage table, `coverage/lcov.info`, and a CI gate without changing test files. It covers direct path dependencies and profiles test suites at function level.
 
 ## Quick start
 
@@ -11,7 +11,7 @@ gleam add --dev glcov
 gleam run --target erlang -m glcov -- run
 ```
 
-The command builds the project, runs its EUnit or gleeunit tests under Erlang `cover`, and maps counted lines back to `.gleam` files.
+The default backend builds the project, runs its EUnit or gleeunit tests under Erlang `cover`, and maps counted lines back to `.gleam` files.
 
 ```text
 2 passed, no failures
@@ -39,11 +39,13 @@ The `gleam` CLI has no plugin system, so `gleam coverage` is not a command. glco
     files: coverage/lcov.info
 ```
 
-## Other ways to run
+## Other backends and modes
 
-- Build the escript with `bash scripts/build_escript.sh` and run `./glcov.escript run` for stateful applications or zero-dependency CI.
-- Build the flake package with `nix build .#glcov` and run it with `./result/bin/glcov run`.
-- Profile the test suite with `gleam run --target erlang -m glcov -- prof test`.
+- JavaScript: `gleam run --target erlang -m glcov -- run --target javascript`. Requires `c8` and `[javascript] source_maps = true`.
+- Path dependencies: direct runtime path dependencies in `gleam.toml` are included automatically. Use `--include-dep <PATH>` for dev dependencies or undeclared packages, and `--no-path-deps` to opt out.
+- Self time: `gleam run --target erlang -m glcov -- prof test --mode self_time`.
+- Escript: build with `bash scripts/build_escript.sh` and run `./glcov.escript run` for stateful applications.
+- Nix: `nix build .#glcov`, then run `./result/bin/glcov run`.
 
 ## Real-project checks
 
@@ -66,7 +68,7 @@ The `wisp` run checks the older stdlib path. The other runs use their current de
 
 ## Requirements
 
-Gleam 1.19 or newer, Erlang/OTP 26 or newer, and `gleam_stdlib` 0.70 or newer.
+The Erlang backend needs Gleam 1.19 or newer, Erlang/OTP 26 or newer, and `gleam_stdlib` 0.70 or newer. The JavaScript backend needs Node and `c8` on `PATH`, plus `[javascript] source_maps = true`. The `call_time` and `call_count` profiler modes need OTP 27; `self_time` needs OTP 26.
 
 ## Licence
 

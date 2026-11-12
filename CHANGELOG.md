@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0
+
+- Added coverage for direct runtime path dependencies declared in
+  `gleam.toml`, plus `--include-dep` and `--no-path-deps`.
+- Added `prof test --mode self_time`, backed by `fprof`, with own-time rows.
+- Added `run --target javascript` through c8 and Gleam source maps.
+- Added JavaScript and self-time integration fixtures and a dedicated CI job.
+
 ## 0.3.0
 
 - Added the Apache-2.0 licence and package metadata.

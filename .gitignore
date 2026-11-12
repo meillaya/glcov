@@ -12,3 +12,5 @@ erl_crash.dump
 /integration/fixtures/*/manifest.toml
 /.battle/
 /.direnv/
+/fprof.trace
+/fprof.analysis

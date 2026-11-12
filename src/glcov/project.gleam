@@ -40,6 +40,23 @@ fn absolute_path(path: String) -> String {
   }
 }
 
+/// Resolve a project-relative path against the project root.
+pub fn resolve_path(project: Project, path: String) -> String {
+  case is_absolute_path(path) {
+    True -> path
+    False -> join(project.root, path)
+  }
+}
+
+pub fn path_dependencies(
+  project: Project,
+) -> Result(List(toml.PathDependency), String) {
+  case ffi.read_file(join(project.root, "gleam.toml")) {
+    Error(message) -> Error("Could not read gleam.toml: " <> message)
+    Ok(contents) -> Ok(toml.path_dependencies(contents))
+  }
+}
+
 pub fn is_absolute_path(path: String) -> Bool {
   string.starts_with(path, "/")
   || string.starts_with(path, "\\")
@@ -97,19 +114,36 @@ pub fn check_toolchain(project: Project) -> Result(Nil, String) {
 /// Build the project for the Erlang target. This compiles src, test, dev,
 /// and dev dependencies; it deliberately does not run `gleam test`.
 pub fn build(project: Project) -> Result(Nil, String) {
+  build_target(project, "erlang")
+}
+
+pub fn build_target(project: Project, target: String) -> Result(Nil, String) {
   case ffi.which("gleam") {
     Error(message) ->
       Error("Could not find the `gleam` executable: " <> message)
     Ok(gleam) ->
-      case ffi.run(gleam, ["build", "--target", "erlang"], project.root) {
+      case ffi.run(gleam, ["build", "--target", target], project.root) {
         0 -> Ok(Nil)
         status ->
           Error(
-            "`gleam build --target erlang` failed with exit code "
+            "`gleam build --target "
+            <> target
+            <> "` failed with exit code "
             <> int.to_string(status)
             <> ".",
           )
       }
+  }
+}
+
+pub fn js_build_dir(project: Project) -> String {
+  join(project.root, "build/dev/javascript/" <> project.name)
+}
+
+pub fn javascript_source_maps(project: Project) -> Result(Bool, String) {
+  case ffi.read_file(join(project.root, "gleam.toml")) {
+    Error(message) -> Error("Could not read gleam.toml: " <> message)
+    Ok(contents) -> Ok(toml.javascript_source_maps(contents))
   }
 }
 

@@ -16,6 +16,15 @@ The same `devenv.nix` is exposed as a flake development shell:
 nix develop --no-pure-eval
 ```
 
+JavaScript integration checks need c8 on `PATH`. Install it in a writable prefix when working locally:
+
+```sh
+npm install --prefix .local c8@10
+export PATH="$PWD/.local/node_modules/.bin:$PATH"
+```
+
+The integration suite skips JavaScript coverage when c8 is missing. The CI JavaScript job installs a pinned c8 version.
+
 ## Checks
 
 ```sh
@@ -28,7 +37,7 @@ devenv test
 
 `devenv test` runs the format check, a warnings-as-errors build, and the unit tests.
 
-`integration/run.sh` builds the escript, then runs real fixture projects. Fixtures cover basic coverage, the minimum gate, failing tests, build failure, no tests, nested modules, the EUnit fallback, stateful application start, the profiler, flags, and `--no-build`.
+`integration/run.sh` builds the escript, then runs fixture projects. Fixtures cover basic coverage, the minimum gate, failing tests, build failure, no tests, nested modules, the EUnit fallback, stateful application start, both profiler backends, JavaScript coverage, path dependencies, flags, and `--no-build`.
 
 The integration suite expects `gleam` and `escript` on `PATH`. The devenv shell provides both.
 
@@ -40,7 +49,7 @@ nix build .#glcov
 nix develop --no-pure-eval --command gleam test
 ```
 
-`nix build .#glcov` builds the CLI as a self-contained escript from source. The Nix derivation copies only `src/` and generates a package configuration with a vendored `gleam_stdlib` path dependency. The wrapper includes the pinned Gleam, Erlang, and Git binaries.
+`nix build .#glcov` builds the CLI as a self-contained escript from source. The Nix derivation copies only `src/` and generates a package configuration with a vendored `gleam_stdlib` path dependency. The wrapper includes the pinned Gleam, Erlang, and Git binaries. JavaScript coverage and self-time profiling are not bundled as extra tools; c8 must be installed separately for JavaScript.
 
 ## Release
 

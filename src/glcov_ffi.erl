@@ -10,6 +10,7 @@
     find_project_root/0,
     read_file/1,
     file_exists/1,
+    delete_file/1,
     is_dir/1,
     write_file/2,
     which/1,
@@ -81,6 +82,10 @@ read_file(Path) ->
 
 file_exists(Path) ->
     filelib:is_regular(to_list(Path)).
+
+delete_file(Path) ->
+    _ = file:delete(to_list(Path)),
+    nil.
 
 is_dir(Path) ->
     filelib:is_dir(to_list(Path)).
@@ -216,26 +221,33 @@ annotation_line(Anno) -> erl_anno:line(Anno).
 %% Returns {ok, TestStatus, TotalMeasurement, [{Module, Function, Arity,
 %% Calls, Measurement, PercentBasisPoints}]} or {error, Message}.
 profile_tests(Root, Color, ModeBin) ->
-    case code:which(tprof) of
-        non_existing ->
-            {error, <<"profiling requires Erlang/OTP 27 or newer">>};
+    Mode = binary_to_atom(to_bin(ModeBin), utf8),
+    RootList = to_list(Root),
+    Modules = test_modules(RootList),
+    case Modules of
+        [] ->
+            {ok, {0, 0, []}};
         _ ->
-            Mode = binary_to_atom(to_bin(ModeBin), utf8),
-            Modules = test_modules(to_list(Root)),
-            case Modules of
-                [] ->
-                    {ok, {0, 0, []}};
-                _ ->
-                    case run_test_setup() of
-                        error ->
-                            {error, <<"test setup failed">>};
-                        ok ->
-                            profile_modules(Modules, Color, Mode)
+            case run_test_setup() of
+                error ->
+                    {error, <<"test setup failed">>};
+                ok ->
+                    case Mode of
+                        self_time -> profile_self_time(RootList, Modules, Color);
+                        _ -> profile_tprof(Modules, Color, Mode)
                     end
             end
     end.
 
-profile_modules(Modules, Color, Mode) ->
+profile_tprof(Modules, Color, Mode) ->
+    case code:which(tprof) of
+        non_existing ->
+            {error, <<"call_time and call_count require Erlang/OTP 27 or newer">>};
+        _ ->
+            profile_tprof_modules(Modules, Color, Mode)
+    end.
+
+profile_tprof_modules(Modules, Color, Mode) ->
     try
         Options = #{type => Mode, report => return, set_on_spawn => true},
         Fun = fun() -> run_eunit(Modules, Color) end,
@@ -265,6 +277,82 @@ profile_modules(Modules, Color, Mode) ->
     catch
         Class:Reason:Stack ->
             {error, fmt({Class, Reason, Stack})}
+    end.
+
+profile_self_time(Root, Modules, Color) ->
+    Directory = filename:join([Root, "build", "glcov-profile"]),
+    Unique = integer_to_list(erlang:unique_integer([positive])),
+    TraceFile = filename:join(Directory, "trace-" ++ Unique),
+    AnalysisFile = filename:join(Directory, "analysis-" ++ Unique),
+    try
+        ok = filelib:ensure_dir(filename:join(Directory, "placeholder")),
+        {TestResult, ok, ok} = with_null_device(fun(Original, Device) ->
+            Result = fprof:apply(
+                fun() ->
+                    _ = group_leader(Original, self()),
+                    Test = run_eunit(Modules, Color),
+                    _ = group_leader(Device, self()),
+                    Test
+                end,
+                [],
+                [{file, TraceFile}]
+            ),
+            _ = group_leader(Device, self()),
+            Profile = fprof:profile([{file, TraceFile}]),
+            Analysis = fprof:analyse(
+                [
+                    {dest, AnalysisFile},
+                    {totals, true},
+                    {details, false},
+                    {callers, false},
+                    {sort, own}
+                ]
+            ),
+            {Result, Profile, Analysis}
+        end),
+        {ok, Terms} = file:consult(AnalysisFile),
+        Rows = fprof_rows(lists:flatten(Terms)),
+        {ok, {test_status(TestResult), 0, Rows}}
+    catch
+        Class:Reason:Stack ->
+            {error, fmt({Class, Reason, Stack})}
+    after
+        _ = file:delete(TraceFile),
+        _ = file:delete(AnalysisFile)
+    end.
+
+fprof_rows(Entries) ->
+    [
+        {
+            atom_to_binary(Module, utf8),
+            atom_to_binary(Function, utf8),
+            Arity,
+            Calls,
+            round(Own * 1000),
+            0
+        }
+     || {{Module, Function, Arity}, Calls, _Accumulated, Own} <- Entries,
+        is_integer(Calls),
+        is_number(Own)
+    ].
+
+with_null_device(Fun) ->
+    Null = case os:type() of
+        {win32, _} -> "NUL";
+        _ -> "/dev/null"
+    end,
+    case file:open(Null, [write]) of
+        {ok, Device} ->
+            Original = group_leader(),
+            group_leader(Device, self()),
+            try Fun(Original, Device)
+            after
+                group_leader(Original, self()),
+                file:close(Device)
+            end;
+        _ ->
+            Original = group_leader(),
+            Fun(Original, Original)
     end.
 
 test_status({ok, nil}) -> 0;
